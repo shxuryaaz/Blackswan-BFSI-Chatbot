@@ -1,6 +1,10 @@
 import os
+import sys
 import json
 from typing import Dict, Any, Optional, List
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from openai import OpenAI
 
 from backend.utils.state_manager import (
@@ -17,14 +21,16 @@ from backend.agents.sanction_agent import SanctionAgent
 # the newest OpenAI model is "gpt-5" which was released August 7, 2025.
 # do not change this unless explicitly requested by the user
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or os.environ.get("AI_INTEGRATIONS_OPENAI_API_KEY")
 
 
 class MasterAgent:
     def __init__(self, state_manager: StateManager):
         self.agent_name = "Master Agent"
         self.state_manager = state_manager
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
+        self.client = None
+        if OPENAI_API_KEY:
+            self.client = OpenAI(api_key=OPENAI_API_KEY)
         
         self.sales_agent = SalesAgent()
         self.verification_agent = VerificationAgent()
@@ -378,6 +384,9 @@ Guidelines:
 3. Keep responses to 2-3 sentences
 4. Never make credit decisions - that's handled by the underwriting system
 5. Use Rs. for currency, lakhs for large amounts"""
+
+        if not self.client:
+            return "Thank you for your patience. How may I assist you further?"
 
         try:
             response = self.client.chat.completions.create(

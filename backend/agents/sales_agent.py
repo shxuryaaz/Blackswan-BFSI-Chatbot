@@ -1,12 +1,16 @@
 import os
+import sys
 import json
 from typing import Dict, Any, Optional, List
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from openai import OpenAI
 
 # the newest OpenAI model is "gpt-5" which was released August 7, 2025.
 # do not change this unless explicitly requested by the user
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY") or os.environ.get("AI_INTEGRATIONS_OPENAI_API_KEY")
 
 
 class SalesAgent:
@@ -17,7 +21,9 @@ class SalesAgent:
     
     def __init__(self):
         self.agent_name = "Sales Agent"
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
+        self.client = None
+        if OPENAI_API_KEY:
+            self.client = OpenAI(api_key=OPENAI_API_KEY)
 
     def extract_loan_requirements(
         self,
@@ -55,6 +61,13 @@ Response format:
     "salary": <number or null>,
     "interest_rate": 11.5
 }"""
+
+        if not self.client:
+            return {
+                "success": False,
+                "error": "OpenAI client not initialized",
+                "data": {}
+            }
 
         messages = [{"role": "system", "content": system_prompt}]
         
@@ -128,6 +141,9 @@ Guidelines:
 
 NEVER discuss credit decisions - that's handled by our underwriting team.
 NEVER promise approval - always say "subject to verification"."""
+
+        if not self.client:
+            return "I apologize, but I'm having trouble processing your request. Could you please try again?"
 
         messages = [{"role": "system", "content": system_prompt}]
         

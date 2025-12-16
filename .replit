@@ -6,3 +6,31 @@ integrations = ["python_openai:1.0.0"]
 [nix]
 channel = "stable-25_05"
 packages = ["freetype", "glibcLocales", "libxcrypt"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Horizon Finance AI Assistant"
+
+[[workflows.workflow]]
+name = "Horizon Finance AI Assistant"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "uvicorn backend.main:app --host 0.0.0.0 --port 5000 --reload"
+waitForPort = 5000
+
+[[ports]]
+localPort = 5000
+externalPort = 80

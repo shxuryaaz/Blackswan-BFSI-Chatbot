@@ -54,7 +54,7 @@ class PDFGenerator:
         ))
         
         self.styles.add(ParagraphStyle(
-            name='BodyText',
+            name='LoanBodyText',
             parent=self.styles['Normal'],
             fontSize=11,
             leading=16,
@@ -143,18 +143,18 @@ class PDFGenerator:
         story.append(date_ref_table)
         story.append(Spacer(1, 0.3*inch))
         
-        story.append(Paragraph(f"Dear <b>{customer_name}</b>,", self.styles['BodyText']))
+        story.append(Paragraph(f"Dear <b>{customer_name}</b>,", self.styles['LoanBodyText']))
         story.append(Spacer(1, 0.1*inch))
         
         story.append(Paragraph(
             f"We are pleased to inform you that your application for a Personal Loan has been "
             f"<b>APPROVED</b> by {self.NBFC_NAME}. We appreciate the trust you have placed in us "
             f"and are committed to providing you with the best financial services.",
-            self.styles['BodyText']
+            self.styles['LoanBodyText']
         ))
         story.append(Spacer(1, 0.2*inch))
         
-        story.append(Paragraph("<b>LOAN DETAILS</b>", self.styles['BodyText']))
+        story.append(Paragraph("<b>LOAN DETAILS</b>", self.styles['LoanBodyText']))
         
         total_amount = emi * tenure_months
         total_interest = total_amount - loan_amount
@@ -183,7 +183,7 @@ class PDFGenerator:
         story.append(loan_table)
         story.append(Spacer(1, 0.3*inch))
         
-        story.append(Paragraph("<b>TERMS AND CONDITIONS</b>", self.styles['BodyText']))
+        story.append(Paragraph("<b>TERMS AND CONDITIONS</b>", self.styles['LoanBodyText']))
         
         terms = [
             "This sanction is valid for 30 days from the date of issue.",
@@ -194,21 +194,21 @@ class PDFGenerator:
         ]
         
         for i, term in enumerate(terms, 1):
-            story.append(Paragraph(f"{i}. {term}", self.styles['BodyText']))
+            story.append(Paragraph(f"{i}. {term}", self.styles['LoanBodyText']))
         
         story.append(Spacer(1, 0.3*inch))
         
         story.append(Paragraph(
             "We look forward to a long-lasting relationship with you. Should you have any queries, "
             "please feel free to contact our customer service team.",
-            self.styles['BodyText']
+            self.styles['LoanBodyText']
         ))
         story.append(Spacer(1, 0.2*inch))
         
-        story.append(Paragraph("Warm Regards,", self.styles['BodyText']))
+        story.append(Paragraph("Warm Regards,", self.styles['LoanBodyText']))
         story.append(Spacer(1, 0.3*inch))
-        story.append(Paragraph("<b>Authorized Signatory</b>", self.styles['BodyText']))
-        story.append(Paragraph(f"{self.NBFC_NAME}", self.styles['BodyText']))
+        story.append(Paragraph("<b>Authorized Signatory</b>", self.styles['LoanBodyText']))
+        story.append(Paragraph(f"{self.NBFC_NAME}", self.styles['LoanBodyText']))
         
         story.append(Spacer(1, 0.5*inch))
         
