@@ -1,0 +1,180 @@
+Build a complete, working consulting-grade Agentic AI Personal Loan Orchestration System for BFSI using Python and FastAPI.
+
+This is a controller-worker agent architecture. Follow the instructions exactly. Do not simplify, skip, or reinterpret requirements.
+
+====================
+TECH STACK (MANDATORY)
+====================
+Backend: Python 3.10+
+Framework: FastAPI
+LLM: OpenAI (used ONLY inside Sales Agent)
+Frontend: Vanilla HTML + CSS + JavaScript (no React, no frameworks)
+PDF Generation: Python (ReportLab or WeasyPrint)
+State Management: In-memory Python object (single session only)
+
+DO NOT use:
+- Node.js
+- Express
+- Frontend-only logic
+- AI for underwriting decisions
+- Any frameworks other than FastAPI
+
+====================
+PROJECT STRUCTURE
+====================
+/backend
+  main.py
+  /agents
+    master_agent.py
+    sales_agent.py
+    verification_agent.py
+    underwriting_agent.py
+    sanction_agent.py
+  /utils
+    state_manager.py
+    loan_calculator.py
+    mock_customer_db.py
+/frontend
+  index.html
+  style.css
+  app.js
+
+====================
+STATE MANAGEMENT (CRITICAL)
+====================
+Maintain ONE single Python dictionary representing the conversation state.
+
+State fields (must exist):
+- session_id
+- customer_name
+- loan_amount
+- tenure_months
+- interest_rate
+- credit_score
+- salary
+- emi
+- pre_approved_limit
+- phone_verified
+- address_verified
+- kyc_verified
+- underwriting_status
+- final_decision
+- sanction_pdf_path
+
+State must be updated ONLY on backend.
+
+====================
+AGENT RESPONSIBILITIES
+====================
+
+MASTER AGENT (master_agent.py)
+- Controls conversation flow
+- Routes requests to worker agents
+- Updates state
+- MUST NOT approve or reject loans
+- MUST NOT perform underwriting logic
+
+SALES AGENT (sales_agent.py)
+- Uses OpenAI LLM
+- Purpose: collect loan requirements conversationally
+- Output MUST be strict JSON ONLY:
+  {
+    "loan_amount": number,
+    "tenure_months": number,
+    "interest_rate": number
+  }
+- No explanations, no markdown, no extra text
+
+VERIFICATION AGENT (verification_agent.py)
+- Pure Python deterministic logic
+- Uses mock_customer_db.py
+- Returns:
+  - phone_verified (true/false)
+  - address_verified (true/false)
+  - credit_score
+  - pre_approved_limit
+- Sets kyc_verified = true only if phone + address are verified
+
+UNDERWRITING AGENT (underwriting_agent.py)
+- ZERO AI usage
+- PURE Python logic ONLY
+- Rules:
+  1. If credit_score < 700 → REJECT
+  2. If loan_amount ≤ pre_approved_limit → APPROVE
+  3. If loan_amount > pre_approved_limit AND ≤ 2x pre_approved_limit:
+     - Salary is required
+     - EMI ≤ 50% of monthly salary → APPROVE
+     - Else → REJECT
+  4. If loan_amount > 2x pre_approved_limit → REJECT
+- Output structured decision:
+  {
+    "status": "APPROVED" | "REJECTED",
+    "reason": "string"
+  }
+
+SANCTION AGENT (sanction_agent.py)
+- Generates professional PDF sanction letter
+- Includes:
+  - NBFC name & logo text
+  - Customer name
+  - Loan amount
+  - Tenure
+  - Interest rate
+  - EMI
+  - Approval date
+  - Formal disclaimer
+- PDF generated server-side
+- Saved to disk
+- Returned via download API
+
+====================
+LOAN CALCULATIONS
+====================
+loan_calculator.py must:
+- Calculate EMI using standard formula
+- Calculate DTI ratio
+- Be reused by underwriting agent
+
+====================
+API ENDPOINTS (MANDATORY)
+====================
+POST /chat
+- Accepts user message
+- Calls Master Agent
+- Returns assistant response
+
+GET /download-sanction
+- Returns generated PDF
+- Uses Content-Disposition attachment
+
+====================
+FRONTEND REQUIREMENTS
+====================
+- Single-page chat interface
+- Professional BFSI look
+- Distinct user and AI message bubbles
+- Typing indicator
+- CTA buttons when needed (e.g., “Download Sanction Letter”)
+- ALL actions call backend APIs
+- NO business logic on frontend
+
+====================
+FLOW (MUST WORK END-TO-END)
+====================
+1. Greeting
+2. Loan requirement collection (Sales Agent)
+3. KYC verification
+4. Conditional salary request (only if needed)
+5. Deterministic underwriting
+6. Final decision
+7. Sanction PDF generation
+8. PDF download inside chat
+
+====================
+QUALITY BAR
+====================
+- App must run without errors
+- Clear, readable code
+- No mock UI flows without backend logic
+- Consulting-grade structure and naming
+- This is a BFSI demo, not a toy app
