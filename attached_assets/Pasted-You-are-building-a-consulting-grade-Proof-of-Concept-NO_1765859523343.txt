@@ -1,0 +1,369 @@
+You are building a consulting-grade Proof of Concept, NOT a toy chatbot.
+
+The application must convincingly demonstrate Agentic AI orchestration for a BFSI personal loan sales journey for an Indian NBFC, aligned with EY Techathon 6.0 – Problem Statement 2 (BFSI).
+
+The output must be:
+
+Architecturally sound
+
+Business-realistic
+
+Demo-ready
+
+Jury-friendly
+
+Visually premium
+
+This project should look like something EY could show to a banking client.
+
+🎯 BUSINESS GOAL (NON-NEGOTIABLE)
+
+Build a web-based AI loan sales assistant that:
+
+Engages customers conversationally (human-like sales)
+
+Understands loan requirements
+
+Performs KYC verification (mocked)
+
+Performs underwriting using deterministic credit rules
+
+Requests salary details only when required
+
+Makes an approval or rejection decision
+
+Generates a downloadable PDF sanction letter
+
+Completes all of this inside a single chat session
+
+🧠 ARCHITECTURAL PHILOSOPHY (MANDATORY)
+
+Use Agentic AI
+
+Follow Controller–Worker orchestration
+
+Separate reasoning, business logic, and presentation
+
+Treat underwriting as code, not AI opinion
+
+Treat LLMs as assistants, not decision-makers
+
+🏗️ TECH STACK (FIXED)
+Backend
+
+Python 3.10+
+
+FastAPI
+
+No microservices
+
+No unnecessary frameworks
+
+Modular folder structure
+
+Frontend
+
+Plain HTML, CSS, JavaScript (no React)
+
+Clean, responsive, modern
+
+BFSI-grade UI polish
+
+🤖 AGENT DEFINITIONS (EXTREMELY IMPORTANT)
+🧠 1. MASTER AGENT (ORCHESTRATOR)
+
+Role
+
+Single source of truth for the system
+
+Owns conversation flow
+
+Owns application state
+
+Decides which worker agent to invoke
+
+Interprets worker outputs
+
+NEVER performs credit decisions itself
+
+Capabilities
+
+Uses an LLM ONLY for:
+
+Natural conversation
+
+User intent understanding
+
+Professional phrasing
+
+State Management
+Maintain a persistent conversation state object:
+
+{
+  "session_id": "",
+  "customer_name": "",
+  "loan_amount": null,
+  "tenure_months": null,
+  "interest_rate": null,
+  "credit_score": null,
+  "salary": null,
+  "emi": null,
+  "pre_approved_limit": null,
+  "kyc_verified": false,
+  "underwriting_status": "pending",
+  "final_decision": null
+}
+
+
+This state MUST be updated step-by-step.
+
+💬 2. SALES AGENT (LLM-ASSISTED)
+
+Purpose
+
+Mimic a human loan sales executive
+
+Ask relevant questions
+
+Suggest reasonable loan options
+
+Convince politely, not aggressively
+
+Input
+
+Partial conversation state
+
+Output (STRICT JSON ONLY)
+
+{
+  "loan_amount": 400000,
+  "tenure_months": 36,
+  "interest_rate": 11.5
+}
+
+
+No free text allowed in output.
+
+🪪 3. VERIFICATION AGENT (LOGIC ONLY)
+
+Purpose
+
+Simulate KYC verification
+
+Fetch customer profile from a dummy CRM
+
+Implementation
+
+Use a mock database/dictionary
+
+Deterministic responses
+
+Output
+
+{
+  "phone_verified": true,
+  "address_verified": true,
+  "pre_approved_limit": 300000
+}
+
+📊 4. UNDERWRITING AGENT (ZERO AI, PURE LOGIC)
+
+THIS IS THE MOST IMPORTANT AGENT
+
+Rules (IMPLEMENT EXACTLY):
+
+If credit_score < 700 → REJECT
+
+If loan_amount ≤ pre_approved_limit → APPROVE
+
+If loan_amount ≤ 2 × pre_approved_limit:
+
+Request salary
+
+Calculate EMI
+
+Approve ONLY if EMI ≤ 50% of salary
+
+If loan_amount > 2 × pre_approved_limit → REJECT
+
+Output
+
+{
+  "decision": "approved",
+  "reason": "Within pre-approved limit",
+  "emi": 14500
+}
+
+
+No LLM usage allowed here.
+
+📄 5. SANCTION LETTER AGENT
+
+Purpose
+
+Generate a professional PDF sanction letter
+
+PDF MUST INCLUDE
+
+NBFC name (fictional)
+
+Customer name
+
+Loan amount
+
+Tenure
+
+Interest rate
+
+EMI
+
+Approval date
+
+Disclaimer text
+
+Style
+
+Formal
+
+Corporate
+
+Looks like a real bank document
+
+🔁 ORCHESTRATION FLOW (STRICT)
+
+User opens chatbot
+
+Master Agent greets user
+
+Sales Agent gathers loan needs
+
+Verification Agent validates KYC
+
+Underwriting Agent evaluates eligibility
+
+Salary requested ONLY if needed
+
+Final decision communicated
+
+Sanction letter generated
+
+Download link shown in chat
+
+Conversation closed professionally
+
+NO parallel chaos.
+ONE clean, deterministic flow.
+
+🎨 UI / UX (YOU WILL BE JUDGED ON THIS)
+Visual Personality
+
+Trustworthy
+
+Premium
+
+Calm
+
+Enterprise SaaS
+
+UI Requirements
+
+Central chat panel
+
+Fixed-width container
+
+Subtle fade-in animations
+
+Typing indicator
+
+Distinct agent vs user messages
+
+CTA buttons inside chat bubbles
+
+PDF download button
+
+Color Palette
+
+White / off-white background
+
+Muted blues or greys
+
+No neon
+
+No gradients unless subtle
+
+Typography
+
+Clean sans-serif
+
+Proper spacing
+
+No clutter
+
+📁 REQUIRED PROJECT STRUCTURE
+/backend
+  main.py
+  agents/
+    master_agent.py
+    sales_agent.py
+    verification_agent.py
+    underwriting_agent.py
+    sanction_agent.py
+  utils/
+    pdf_generator.py
+    loan_calculator.py
+    state_manager.py
+
+/frontend
+  index.html
+  styles.css
+  app.js
+
+🧪 MOCKING RULES
+
+Credit score → random but configurable
+
+Salary slip → numeric input
+
+No real banking APIs
+
+Everything deterministic & explainable
+
+🏆 SUCCESS CRITERIA
+
+This project should:
+
+Be demoable in under 4 minutes
+
+Feel like a client PoC
+
+Clearly outperform slide-only teams
+
+Demonstrate agentic orchestration clearly
+
+Impress EY consultants, not just engineers
+
+❌ ABSOLUTE DONTs
+
+No microservices
+
+No LangChain buzzwords without logic
+
+No LLM-based credit decisions
+
+No messy UI
+
+No incomplete flows
+
+🚀 FINAL OUTPUT EXPECTATION
+
+A fully working web app that:
+
+Runs locally
+
+Looks professional
+
+Demonstrates Agentic AI correctly
+
+Generates a real PDF
+
+Can win EY Techathon 6.0
