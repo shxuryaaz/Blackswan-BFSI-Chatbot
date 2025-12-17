@@ -53,6 +53,24 @@ class VerificationAgent:
         
         if not phone_number:
             phone_number = "0000000000"
+        
+        # Demo mode: Special phone number for demo purposes
+        DEMO_PHONE_NUMBER = "7982130057"
+        if phone_number == DEMO_PHONE_NUMBER:
+            logger.info("🎯 DEMO MODE: High credit score for demo phone number")
+            credit_score = 800
+            pre_approved_limit = 1000000.0  # High limit to ensure approval
+            logger.info(f"  Credit Score: {credit_score}, Pre-approved Limit: Rs. {pre_approved_limit:,.2f}")
+            return {
+                "success": True,
+                "phone_verified": True,
+                "address_verified": True,
+                "credit_score": credit_score,
+                "pre_approved_limit": pre_approved_limit,
+                "customer_name": customer_name or "Demo Customer",
+                "message": "Demo customer verified successfully. High credit profile for demonstration."
+            }
+        
         if phone_number in self.MOCK_CUSTOMER_DATABASE:
             customer = self.MOCK_CUSTOMER_DATABASE[phone_number]
             logger.info(f"✅ Existing customer found: {customer['name']}")
