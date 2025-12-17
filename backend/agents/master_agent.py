@@ -1,11 +1,14 @@
 import os
 import sys
 import json
+import logging
 from typing import Dict, Any, Optional, List
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 from backend.utils.state_manager import (
     LoanApplicationState, 
@@ -42,14 +45,20 @@ class MasterAgent:
         session_id: str, 
         user_message: str
     ) -> Dict[str, Any]:
+        logger.info(f"🤖 Master Agent processing message for session: {session_id}")
         state = self.state_manager.get_session(session_id)
         if not state:
+            logger.info("Creating new state for session")
             state = self.state_manager.create_session()
             session_id = state.session_id
 
         state.add_message("user", user_message)
+        logger.info(f"Current stage: {state.conversation_stage.value}")
         
         response = self._orchestrate(state, user_message)
+        
+        logger.info(f"Orchestration complete. New stage: {state.conversation_stage.value}")
+        logger.info(f"Response message length: {len(response.get('message', ''))}")
         
         state.add_message("assistant", response["message"])
         
@@ -101,14 +110,16 @@ class MasterAgent:
         state: LoanApplicationState, 
         user_message: str
     ) -> Dict[str, Any]:
+        logger.info("👋 Handling greeting stage")
         state.conversation_stage = ConversationStage.COLLECTING_INFO
         
         greeting = self._generate_natural_response(
             state,
-            context="This is the first message. Greet the customer warmly and ask how you can help with their loan needs. Ask for their name.",
+            context="The customer has provided their name. Build rapport by acknowledging them warmly. Discover their needs by asking about their loan purpose and goals. Show excitement about helping them. Make them feel valued. Guide them naturally toward sharing their requirements.",
             user_message=user_message
         )
         
+        logger.info(f"Greeting response generated: {greeting[:100]}...")
         return {"message": greeting, "actions": ["greeting_complete"]}
 
     def _handle_info_collection(
@@ -124,26 +135,66 @@ class MasterAgent:
         if extraction["success"]:
             data = extraction["data"]
             
+            logger.info(f"📝 Updating state with extracted data:")
             if data.get("customer_name"):
                 state.customer_name = data["customer_name"]
+                logger.info(f"  ✓ Customer name: {data['customer_name']}")
             if data.get("phone_number"):
                 state.phone_number = data["phone_number"]
+                logger.info(f"  ✓ Phone number: {data['phone_number']}")
             if data.get("loan_amount"):
-                state.loan_amount = float(data["loan_amount"])
+                loan_amt = float(data["loan_amount"])
+                state.loan_amount = loan_amt
+                logger.info(f"  ✓ Loan amount: Rs. {loan_amt:,.2f}")
             if data.get("tenure_months"):
-                state.tenure_months = int(data["tenure_months"])
+                tenure_val = int(data["tenure_months"])
+                state.tenure_months = tenure_val
+                logger.info(f"  ✓ Tenure: {tenure_val} months")
+            else:
+                logger.warning(f"  ✗ Tenure not extracted (value: {data.get('tenure_months')})")
             if data.get("interest_rate"):
                 state.interest_rate = float(data["interest_rate"])
             if data.get("salary"):
-                state.salary = float(data["salary"])
+                salary_val = float(data["salary"])
+                state.salary = salary_val
+                logger.info(f"  ✓ Salary: Rs. {salary_val:,.2f}")
 
         missing = self._get_missing_required_fields(state)
+        logger.info(f"Missing required fields: {missing if missing else 'None - ready for KYC'}")
+        
+        # Check if user is trying to end conversation but required fields are missing
+        user_lower = user_message.lower().strip()
+        ending_phrases = ["that's it", "thats it", "that's all", "thats all", "nothing else", "no more", "done", "finished", "bye", "thanks"]
+        is_trying_to_end = any(phrase in user_lower for phrase in ending_phrases)
         
         if not missing:
             state.conversation_stage = ConversationStage.KYC_VERIFICATION
             return self._handle_kyc(state, user_message)
 
-        context = f"Missing information: {', '.join(missing)}. Ask for the next missing piece naturally."
+        # Build sales-oriented context based on what's missing
+        if "loan amount" in missing:
+            if is_trying_to_end:
+                context = "Customer seems done but loan amount is missing. Politely but firmly insist we need the amount to proceed. 'I'd love to help you, but I need to know the loan amount to get you pre-approved. What amount are you looking for?'"
+            else:
+                context = "The customer hasn't specified their loan amount yet. Ask ONLY for loan amount - don't repeat information already provided (like purpose). Be direct and focused. You MUST end your response with a DIRECT QUESTION asking for the loan amount. Examples: 'What loan amount are you looking for?' or 'How much do you need?' Keep it short and focused."
+        elif "loan tenure" in missing:
+            if is_trying_to_end:
+                context = f"Customer seems done but tenure is missing. This is CRITICAL - we cannot proceed without tenure. Be polite but firm: 'I understand you're ready, but I need to know the loan tenure to complete your application. We recommended 36-48 months earlier - would that work for you? Or do you prefer a different tenure?' Don't let them leave without this."
+            else:
+                context = "The customer hasn't specified tenure yet. Ask ONLY for tenure - don't repeat information already provided (like loan amount or purpose). Be direct and focused. You MUST end your response with a DIRECT QUESTION asking for tenure. Examples: 'How many months would you like for your loan tenure?' or 'Which tenure works for you - 36 months or 48 months?' Keep it short and focused."
+        elif "phone number" in missing:
+            if is_trying_to_end:
+                context = "Customer seems done but phone number is missing. Politely but firmly insist: 'Almost there! I just need your phone number to get you pre-approved. This will take just a moment.'"
+            else:
+                context = "Need phone number for KYC verification. You MUST end your response with a DIRECT QUESTION asking for phone number. Examples: 'Could you please share your phone number?' or 'What's your phone number for verification?' or 'I'll need your phone number to proceed - could you share it?' Make it clear what you need."
+        elif "customer name" in missing:
+            context = "Need customer name. Ask warmly and personally. Build rapport."
+        else:
+            if is_trying_to_end:
+                context = f"Customer seems done but missing: {', '.join(missing)}. Politely but firmly insist we need this information to proceed. Don't let them leave without completing the application."
+            else:
+                context = f"Missing information: {', '.join(missing)}. Ask for it in a sales-oriented way - explain the value and create excitement."
+        
         response = self.sales_agent.generate_response(
             state.conversation_history,
             state.get_state_summary(),
@@ -157,6 +208,7 @@ class MasterAgent:
         state: LoanApplicationState, 
         user_message: str
     ) -> Dict[str, Any]:
+        logger.info("🔐 Handling KYC verification stage")
         verification_result = self.verification_agent.verify_customer(
             state.phone_number,
             state.customer_name
@@ -174,14 +226,37 @@ class MasterAgent:
 
         state.conversation_stage = ConversationStage.UNDERWRITING
         
+        # Check if credit score is too low (will likely be rejected)
+        # Minimum credit score for approval is typically 700
+        credit_score_value = state.credit_score if state.credit_score is not None else 0
+        credit_score_too_low = credit_score_value < 700
+        
+        logger.info(f"🔍 Credit score check: {state.credit_score} (too low: {credit_score_too_low})")
+        
+        # ALWAYS proceed to underwriting first to get the decision
+        underwriting_result = self._handle_underwriting(state, user_message)
+        
+        # If credit score is too low OR application was rejected, skip KYC message
+        if credit_score_too_low or underwriting_result.get("actions") == ["application_rejected"]:
+            # Don't generate overly positive KYC message if rejection is likely
+            # Just return the rejection message directly
+            logger.info("⚠️ Skipping KYC message - credit score too low or application rejected")
+            return {
+                "message": underwriting_result['message'],
+                "actions": underwriting_result.get("actions", []),
+                "download_available": False,
+                "download_path": None
+            }
+        
+        # Credit score is good and not rejected - generate positive KYC message
+        logger.info("✅ Credit score acceptable and not rejected - generating KYC message")
         kyc_message = self._generate_natural_response(
             state,
-            context=f"KYC verification completed successfully. Credit score: {state.credit_score}. Pre-approved limit: Rs. {state.pre_approved_limit:,.2f}. Now proceeding to evaluate the loan application. Be encouraging but don't promise approval.",
+            context=f"✅ KYC verification completed successfully! Credit score: {state.credit_score} (out of 900). Pre-approved limit: Rs. {state.pre_approved_limit:,.2f}. Now proceeding to evaluate your loan application. Be professional and positive. CRITICAL: Do NOT ask for any information - all required information (loan amount, tenure, purpose) has already been collected. Just acknowledge KYC completion and proceed.",
             user_message="KYC complete"
         )
         
-        underwriting_result = self._handle_underwriting(state, user_message)
-        
+        # Approved or pending - combine KYC message with underwriting result
         combined_message = f"{kyc_message}\n\n{underwriting_result['message']}"
         
         return {
@@ -196,6 +271,7 @@ class MasterAgent:
         state: LoanApplicationState, 
         user_message: str
     ) -> Dict[str, Any]:
+        logger.info("⚖️ Handling underwriting evaluation stage")
         underwriting_result = self.underwriting_agent.evaluate(
             loan_amount=state.loan_amount,
             tenure_months=state.tenure_months,
@@ -204,6 +280,7 @@ class MasterAgent:
             pre_approved_limit=state.pre_approved_limit,
             salary=state.salary
         )
+        logger.info(f"Underwriting decision: {underwriting_result.get('decision', 'unknown')}")
         
         decision = underwriting_result["decision"]
         
@@ -238,7 +315,7 @@ class MasterAgent:
             
             salary_request = self._generate_natural_response(
                 state,
-                context=f"The loan amount exceeds pre-approved limit. Need salary verification. Required minimum salary: Rs. {underwriting_result.get('required_min_salary', 0):,.2f}. Ask for monthly salary politely.",
+                context=f"🎉 Great news! Your loan amount exceeds your pre-approved limit, which means we can offer you more! To unlock this higher amount and get you approved, we need to verify your salary. Required minimum: Rs. {underwriting_result.get('required_min_salary', 0):,.2f} per month. Frame this positively - make it exciting, not a barrier. 'To unlock this higher amount, let's verify your income' - be enthusiastic!",
                 user_message=user_message
             )
             
@@ -286,6 +363,7 @@ class MasterAgent:
         state: LoanApplicationState, 
         user_message: str
     ) -> Dict[str, Any]:
+        logger.info("📋 Handling sanction letter generation stage")
         result = self.sanction_agent.generate_sanction_letter(
             customer_name=state.customer_name or "Valued Customer",
             loan_amount=state.loan_amount,
@@ -368,47 +446,76 @@ class MasterAgent:
         context: str,
         user_message: str
     ) -> str:
-        system_prompt = f"""You are a professional loan sales assistant at Horizon Finance Limited, an Indian NBFC.
+        loan_amount_str = f"Rs. {state.loan_amount:,.2f}" if state.loan_amount else 'Not specified'
         
+        system_prompt = f"""You are a top-performing loan sales executive at Horizon Finance Limited, an Indian NBFC. Your goal is to convert prospects into approved loan applications.
+
+SALES APPROACH:
+- Build rapport and show genuine interest in their goals
+- Discover needs: understand WHY they need the loan, not just WHAT they need
+- Highlight value: emphasize low rates (11.5%+), quick approval, flexible terms
+- Create excitement: "Great news!", "Perfect!", "I can help you with that!"
+- Guide naturally: "Let's get you pre-approved", "I'll make this easy for you"
+- Address concerns: "I understand you might be thinking...", "Don't worry, we'll..."
+- Use their name to personalize
+
 Current context: {context}
 
 Customer state:
 - Name: {state.customer_name or 'Unknown'}
-- Loan Amount: Rs. {state.loan_amount:,.2f if state.loan_amount else 'Not specified'}
+- Loan Amount: {loan_amount_str}
 - Tenure: {state.tenure_months or 'Not specified'} months
 - Stage: {state.conversation_stage.value}
 
 Guidelines:
-1. Be professional, warm, and concise
+1. Be enthusiastic, warm, and persuasive (but ethical)
 2. Use proper Indian English
-3. Keep responses to 2-3 sentences
-4. Never make credit decisions - that's handled by the underwriting system
-5. Use Rs. for currency, lakhs for large amounts"""
+3. Keep responses engaging (2-4 sentences)
+4. Never promise specific approval - say "subject to verification" but be optimistic
+5. Use Rs. for currency, lakhs for large amounts
+6. Make them feel valued and excited about the opportunity
+7. CRITICAL: NEVER ask for information that has already been collected. If loan amount, tenure, or purpose were already mentioned in the conversation, do NOT ask for them again.
+8. CRITICAL: If the context indicates missing information, you MUST end your response with a clear, direct question asking for that information. Always end with a question mark (?) when information is needed."""
 
         if not self.client:
+            logger.warning("⚠️ OpenAI client not initialized")
             return "Thank you for your patience. How may I assist you further?"
 
         try:
+            logger.info("📡 Calling OpenAI API...")
+            logger.debug(f"System prompt: {system_prompt[:200]}...")
+            logger.debug(f"User message: {user_message}")
+            
             response = self.client.chat.completions.create(
-                model="gpt-5",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
                 ],
-                max_completion_tokens=200
+                max_tokens=200
             )
-            return response.choices[0].message.content
-        except Exception:
+            content = response.choices[0].message.content
+            logger.info(f"✅ OpenAI response received ({len(content) if content else 0} chars)")
+            logger.debug(f"Response content: {content[:200]}{'...' if content and len(content) > 200 else ''}")
+            return content if content else "Thank you for your patience. How may I assist you further?"
+        except Exception as e:
+            logger.error(f"❌ Error in _generate_natural_response: {str(e)}", exc_info=True)
             return "Thank you for your patience. How may I assist you further?"
 
     def start_session(self) -> Dict[str, Any]:
         state = self.state_manager.create_session()
         
-        greeting = """Welcome to Horizon Finance Limited!
+        greeting = """Welcome to Horizon Finance Limited! 🎉
 
-I'm your personal loan assistant, and I'm here to help you with your financing needs today.
+I'm excited to help you get the personal loan you need! Whether it's for a car, home renovation, or any other important goal, I'm here to make it happen.
 
-To get started, may I know your name please?"""
+We offer:
+✨ Competitive interest rates starting at just 11.5%
+✨ Quick approval process - get pre-approved in minutes
+✨ Flexible tenure options from 12 to 60 months
+✨ Transparent pricing with no hidden charges
+
+To get started and see what you qualify for, may I know your name please?"""
         
         state.add_message("assistant", greeting)
         

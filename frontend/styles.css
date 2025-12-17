@@ -180,6 +180,11 @@ body {
     white-space: pre-wrap;
 }
 
+.message-content strong {
+    font-weight: 700;
+    color: inherit;
+}
+
 .message.user .message-content {
     background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
     color: white;

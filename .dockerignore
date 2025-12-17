@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+venv/
+env/
+.env
+*.log
+.git
+.gitignore
+.DS_Store
+*.md
+attached_assets/
+generated_letters/*.pdf
+

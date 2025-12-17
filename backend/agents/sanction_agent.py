@@ -1,10 +1,13 @@
 import os
 import sys
+import logging
 from typing import Dict, Any, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend.utils.pdf_generator import PDFGenerator
+
+logger = logging.getLogger(__name__)
 
 
 class SanctionAgent:
@@ -21,7 +24,36 @@ class SanctionAgent:
         emi: Optional[float],
         session_id: str
     ) -> Dict[str, Any]:
+        logger.info("📄 Sanction Agent: Generating sanction letter")
+        logger.info(f"  Customer: {customer_name}")
+        
+        if loan_amount is not None:
+            loan_amount_str = f"Rs. {loan_amount:,.2f}"
+        else:
+            loan_amount_str = "N/A"
+            
+        if tenure_months is not None:
+            tenure_str = f"{tenure_months} months"
+        else:
+            tenure_str = "N/A"
+            
+        if interest_rate is not None:
+            interest_rate_str = f"{interest_rate}%"
+        else:
+            interest_rate_str = "N/A"
+            
+        if emi is not None:
+            emi_str = f"Rs. {emi:,.2f}"
+        else:
+            emi_str = "N/A"
+        
+        logger.info(f"  Loan Amount: {loan_amount_str}")
+        logger.info(f"  Tenure: {tenure_str}")
+        logger.info(f"  Interest Rate: {interest_rate_str}")
+        logger.info(f"  EMI: {emi_str}")
+        
         if not all([customer_name, loan_amount, tenure_months, interest_rate, emi, session_id]):
+            logger.error("❌ Missing required parameters for sanction letter")
             return {
                 "success": False,
                 "error": "Missing required parameters for sanction letter generation",
@@ -38,6 +70,8 @@ class SanctionAgent:
                 session_id=session_id
             )
             
+            logger.info(f"✅ Sanction letter generated: {file_path}")
+            
             return {
                 "success": True,
                 "file_path": file_path,
@@ -52,6 +86,7 @@ class SanctionAgent:
             }
             
         except Exception as e:
+            logger.error(f"❌ Failed to generate sanction letter: {str(e)}", exc_info=True)
             return {
                 "success": False,
                 "error": f"Failed to generate sanction letter: {str(e)}",
@@ -100,18 +135,19 @@ Thank you for choosing Horizon Finance Limited!
         customer_name: str,
         reason: str
     ) -> str:
-        message = f"""
-Dear {customer_name},
+        message = f"""Dear {customer_name},
 
-We regret to inform you that we are unable to approve your loan application at this time.
+Thank you for your interest in Horizon Finance Limited. After careful review of your application, we are unable to approve your loan request at this time.
 
 Reason: {reason}
 
-We encourage you to:
-- Review your credit profile
-- Consider applying for a lower amount
-- Contact our customer support for more details
+We understand this may be disappointing. Here are some steps you can take:
+- Review and improve your credit profile
+- Consider applying for a lower loan amount that better matches your credit profile
+- Contact our customer support team for personalized guidance
 
-Thank you for considering Horizon Finance Limited. We hope to serve you in the future.
-"""
+We appreciate your interest and hope to serve you in the future when your credit profile improves.
+
+Best regards,
+Horizon Finance Limited"""
         return message.strip()

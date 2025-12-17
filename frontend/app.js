@@ -108,7 +108,10 @@ class LoanChatApp {
 
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        contentDiv.textContent = content;
+        
+        // Format content to bold questions
+        const formattedContent = this.formatMessageWithBoldQuestions(content);
+        contentDiv.innerHTML = formattedContent;
 
         messageDiv.appendChild(labelDiv);
         messageDiv.appendChild(contentDiv);
@@ -146,6 +149,76 @@ class LoanChatApp {
         setTimeout(() => {
             this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
         }, 50);
+    }
+
+    formatMessageWithBoldQuestions(content) {
+        // Escape HTML first to prevent XSS
+        let escaped = this.escapeHtml(content);
+        
+        // Split content into lines (preserving line breaks)
+        const lines = escaped.split('\n');
+        let formattedLines = [];
+        
+        for (let line of lines) {
+            // Find the last sentence/question ending with ? in the line
+            // This regex finds the last sentence that ends with ? (including the ?)
+            const questionMatch = line.match(/([^.!?]*\?[^.!?]*)$/);
+            
+            if (questionMatch) {
+                // Found a question at the end - bold only that part
+                const questionPart = questionMatch[0];
+                const beforeQuestion = line.slice(0, line.length - questionPart.length);
+                
+                if (beforeQuestion.trim()) {
+                    // There's text before the question - keep it normal, bold only the question
+                    formattedLines.push(`${beforeQuestion}<strong>${questionPart}</strong>`);
+                } else {
+                    // The entire line is the question - bold it
+                    formattedLines.push(`<strong>${line}</strong>`);
+                }
+            } else {
+                // No question mark found, look for question patterns
+                const questionPatterns = [
+                    /(Could you[^.!?\n]*\?)/gi,
+                    /(Can you[^.!?\n]*\?)/gi,
+                    /(Would you[^.!?\n]*\?)/gi,
+                    /(How many[^.!?\n]*\?)/gi,
+                    /(How much[^.!?\n]*\?)/gi,
+                    /(What[^.!?\n]{5,}\?)/gi,
+                    /(Which[^.!?\n]*\?)/gi,
+                    /(Tell me[^.!?\n]*\?)/gi,
+                    /(Please share[^.!?\n]*\?)/gi,
+                    /(I need[^.!?\n]*\?)/gi
+                ];
+                
+                let processedLine = line;
+                let hasQuestion = false;
+                
+                questionPatterns.forEach(pattern => {
+                    if (pattern.test(processedLine)) {
+                        hasQuestion = true;
+                        processedLine = processedLine.replace(pattern, (match) => {
+                            // Only bold if it's a substantial question
+                            if (match.trim().length > 10) {
+                                return `<strong>${match}</strong>`;
+                            }
+                            return match;
+                        });
+                    }
+                });
+                
+                formattedLines.push(processedLine);
+            }
+        }
+        
+        // Join lines with <br> tags
+        return formattedLines.join('<br>');
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 

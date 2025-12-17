@@ -1,5 +1,8 @@
 import random
+import logging
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class VerificationAgent:
@@ -45,10 +48,15 @@ class VerificationAgent:
         self.agent_name = "Verification Agent"
 
     def verify_customer(self, phone_number: Optional[str], customer_name: Optional[str] = None) -> Dict[str, Any]:
+        logger.info("🔍 Verification Agent: Starting KYC verification")
+        logger.info(f"  Phone: {phone_number}, Name: {customer_name}")
+        
         if not phone_number:
             phone_number = "0000000000"
         if phone_number in self.MOCK_CUSTOMER_DATABASE:
             customer = self.MOCK_CUSTOMER_DATABASE[phone_number]
+            logger.info(f"✅ Existing customer found: {customer['name']}")
+            logger.info(f"  Credit Score: {customer['credit_score']}, Pre-approved Limit: Rs. {customer['pre_approved_limit']:,.2f}")
             return {
                 "success": True,
                 "phone_verified": customer["phone_verified"],
@@ -59,8 +67,11 @@ class VerificationAgent:
                 "message": "KYC verification successful. Customer found in our records."
             }
         
-        credit_score = random.randint(650, 850)
+        credit_score = random.randint(0, 900)  # Credit score out of 900 as per requirements
         pre_approved_limit = self._calculate_pre_approved_limit(credit_score)
+        
+        logger.info(f"🆕 New customer profile created")
+        logger.info(f"  Credit Score: {credit_score}, Pre-approved Limit: Rs. {pre_approved_limit:,.2f}")
         
         return {
             "success": True,

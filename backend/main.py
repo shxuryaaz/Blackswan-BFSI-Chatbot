@@ -1,9 +1,12 @@
 import os
 import sys
+import logging
+import json
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
@@ -12,6 +15,14 @@ from typing import Optional
 
 from backend.utils.state_manager import StateManager
 from backend.agents.master_agent import MasterAgent
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Horizon Finance - AI Loan Assistant",
@@ -53,7 +64,10 @@ async def health_check():
 
 @app.post("/api/start")
 async def start_session():
+    logger.info("🚀 Starting new session...")
     result = master_agent.start_session()
+    logger.info(f"✅ Session started: {result['session_id']}")
+    logger.info(f"Initial message: {result['message'][:100]}...")
     return ChatResponse(
         session_id=result["session_id"],
         message=result["message"],
@@ -65,16 +79,33 @@ async def start_session():
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
+    logger.info("=" * 80)
+    logger.info(f"📨 INCOMING REQUEST - {datetime.now().strftime('%H:%M:%S')}")
+    logger.info(f"Session ID: {request.session_id or 'NEW SESSION'}")
+    logger.info(f"User Message: {request.message}")
+    logger.info("-" * 80)
+    
     if not request.message.strip():
+        logger.warning("❌ Empty message received")
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     
     session_id = request.session_id
     
     if not session_id:
+        logger.info("🆕 Creating new session...")
         start_result = master_agent.start_session()
         session_id = start_result["session_id"]
+        logger.info(f"✅ New session created: {session_id}")
     
+    logger.info(f"🔄 Processing message with Master Agent...")
     result = master_agent.process_message(session_id, request.message)
+    
+    logger.info("📤 OUTGOING RESPONSE")
+    logger.info(f"Session ID: {result['session_id']}")
+    logger.info(f"Stage: {result['stage']}")
+    logger.info(f"Response Message: {result['message'][:200]}{'...' if len(result['message']) > 200 else ''}")
+    logger.info(f"Download Available: {result.get('download_available', False)}")
+    logger.info("=" * 80)
     
     return ChatResponse(
         session_id=result["session_id"],
